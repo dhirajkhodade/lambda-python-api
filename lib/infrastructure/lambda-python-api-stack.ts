@@ -50,8 +50,8 @@ export class LambdaPythonApiStack extends cdk.Stack {
 
     const fnEndpoint = new lambda.Function(this, 'Function', {
       runtime: lambda.Runtime.PYTHON_3_9,
-      handler: 'controller',
-      code: lambda.Code.fromAsset(path.join(__dirname, 'lambda-handler')),
+      handler: 'controller.py',
+      code: lambda.Code.fromAsset(path.join(__dirname, '/../applications/sample_api/')),
     });
 
     fnEndpoint.grantInvoke(new iam.ServicePrincipal('apigateway.amazonaws.com'))
