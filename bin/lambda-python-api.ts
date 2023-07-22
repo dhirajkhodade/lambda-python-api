@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { LambdaPythonApiStack } from '../lib/lambda-python-api-stack';
+import { LambdaPythonApiStack } from '../lib/infrastructure/lambda-python-api-stack';
 
 const app = new cdk.App();
 new LambdaPythonApiStack(app, 'LambdaPythonApiStack', {
