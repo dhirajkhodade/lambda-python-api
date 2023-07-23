@@ -1,11 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-
 import { aws_lambda as lambda, aws_ec2 as ec2, Duration, aws_apigateway } from 'aws-cdk-lib'
 import { AuthorizationType } from 'aws-cdk-lib/aws-apigateway'
 import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as path from 'path'
+import { SsmHelper } from '../infrastructure/utils/ssm-helper'
+import { LayerVersion } from 'aws-cdk-lib/aws-lambda';
 
 
 
@@ -29,7 +30,7 @@ export class LambdaPythonApiStack extends cdk.Stack {
     lambdaSg.addIngressRule(ec2.Peer.ipv4('1.2.3.4/8'), ec2.Port.tcp(443), 'allow https incoming trafic from specific network')
 
 
-    const lambdaLayerAutomationLambdaRole = new Role(this, 'python-lambda-role', {
+    const lambdaRole = new Role(this, 'python-lambda-role', {
       assumedBy: new ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -37,7 +38,7 @@ export class LambdaPythonApiStack extends cdk.Stack {
       ],
     })
 
-    lambdaLayerAutomationLambdaRole.addToPolicy(
+    lambdaRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         resources: ['*'],
@@ -47,11 +48,24 @@ export class LambdaPythonApiStack extends cdk.Stack {
       }),
     )
 
+    
+    const pwrToolsLayer = LayerVersion.fromLayerVersionArn(scope, 'pwrToolsLayer', '<lambda powertools arn>');
+
+    const lambdaLayers = [pwrToolsLayer]
 
     const fnEndpoint = new lambda.Function(this, 'Function', {
       runtime: lambda.Runtime.PYTHON_3_9,
       handler: 'controller.py',
       code: lambda.Code.fromAsset(path.join(__dirname, '/../applications/sample_api/')),
+      memorySize: 256,
+      vpc: privateVpc,
+      securityGroups: [lambdaSg],
+      role: lambdaRole,
+      vpcSubnets: {
+       subnetFilters : [ec2.SubnetFilter.byIds(["1234", "5678"])]
+      },
+      timeout: Duration.minutes(1),
+      layers: lambdaLayers
     });
 
     fnEndpoint.grantInvoke(new iam.ServicePrincipal('apigateway.amazonaws.com'))
@@ -104,11 +118,11 @@ export class LambdaPythonApiStack extends cdk.Stack {
       policy: apiResourcePolicy,
     })
 
-    // ParameterHelper.putParameter(
-    //   this,
-    //   `/my-app/endpoint/my-api`,
-    //   `https://${api.restApiId}-${interfaceVpcEndpoint.vpcEndpointId}.execute-api.${this.variables.env?.region}.amazonaws.com/${this.variables.envName}/`,
-    // )
+    SsmHelper.putParameter(
+      this,
+      `/my-app/endpoint/my-api`,
+      `https://${api.restApiId}-${interfaceVpcEndpoint.vpcEndpointId}.execute-api.us-east-1.amazonaws.com/dev/`,
+    )
 
   }
 }
